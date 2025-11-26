@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistema de Gerenciamento - Clientes e Custos (Atualizado)</title>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* Layout preservado e adaptado */
+        body { margin: 0; font-family: Arial, sans-serif; background: #eef1f5; }
+        header { background: #003366; color: white; padding: 15px 20px; font-size: 22px; font-weight: bold; text-align:center; }
+        .sidebar { width: 260px; height: 100vh; background: #1f2a44; color: white; padding-top: 20px; position: fixed; top: 0; left: 0; }
+        .sidebar h3 { padding: 0 22px; margin-top: 5px; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .menu-item { padding: 14px 22px; cursor: pointer; transition: 0.25s; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .menu-item:hover { background: #33415c; }
+        .submenu { background: #27324a; display: none; }
+        .submenu .menu-item { padding-left: 45px; font-size: 14px; }
+        .content { margin-left: 280px; padding: 30px; }
+        .card, .table-box { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); max-width: 1100px; margin-bottom: 20px;}
+        label { font-weight: bold; margin-top: 10px; display: block; }
+        input, select, textarea { width: 100%; padding: 10px; margin-top: 5px; border-radius: 6px; border: 1px solid #bbb; box-sizing: border-box; }
+        .input-group { display: flex; gap: 20px; }
+        .input-group > div { flex: 1; }
+        .input-group input, .input-group select { width: 100%; }
+        button { margin-top: 20px; padding: 12px 18px; background: #003366; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #0a4a8f; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; border-bottom: 1px solid #ccc; text-align: left; }
+        th { background: #f0f3f7; }
+        .filters input { padding: 10px; border-radius: 6px; border: 1px solid #ccc; }
+        /* Ajuste do dashboard para caber o novo card */
+        .dashboard-box { display: flex; gap: 20px; flex-wrap:wrap; }
+        .dash { background: white; padding: 20px; border-radius: 10px; width: 200px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+        .dash:nth-child(4) { width: 250px; } /* Ajuste Mecânico 1 */
+        .dash:nth-child(5) { width: 200px; } /* Ajuste Mecânico 2 e 3 */
+        .dash:last-child { width: 200px; } /* Ajuste Itens */
+        .dash h1 { font-size: 36px; margin: 5px 0; }
+        .small { font-size: 13px; color:#666; margin-top:6px; }
+        textarea { resize: vertical; }
+        .btn-small { padding:6px 10px; font-size:13px; border-radius:6px; margin-top: 5px; }
+        .btn-action { margin: 0 2px; padding: 6px 10px; font-size: 12px; }
+        
+        hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+
+        /* Estilos do Modal (Pop-up) */
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+            overflow: auto; background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888;
+            width: 80%; max-width: 400px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: left;
+        }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close:hover, .close:focus { color: black; text-decoration: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+<header>Sistema – Gerenciamento de Clientes e Custos</header>
+
+<div class="sidebar">
+    <h3>Menu</h3>
+    <div class="menu-item" onclick="toggle('cadastro')">Clientes (OS)</div>
+    <div id="cadastro" class="submenu" style="display:block;">
+        <div class="menu-item" onclick="abrirTela('telaCadastro')">Nova Ordem de Serviço</div>
+        <div class="menu-item" onclick="abrirTela('telaClientes')">Ordens de Serviço</div>
+    </div>
+    
+    <div class="menu-item" onclick="toggle('itens')">Itens/Serviços</div>
+    <div id="itens" class="submenu">
+        <div class="menu-item" onclick="abrirTela('telaCadastroItem')">Cadastrar Item</div>
+        <div class="menu-item" onclick="abrirTela('telaListaItens')">Listar Itens</div>
+    </div>
+
+    <div class="menu-item" onclick="toggle('custos')">Custos</div>
+    <div id="custos" class="submenu">
+        <div class="menu-item" onclick="abrirTela('telaNovoCusto')">Registrar Custo</div>
+        <div class="menu-item" onclick="abrirTela('telaListaCustos')">Listar Custos</div>
+    </div>
+
+    <div class="menu-item" onclick="abrirTela('telaResultadosCustos')">📊 Resultados</div>
+</div>
+
+<div class="content">
+    <h2>Painel do Sistema</h2>
+    <p>Selecione uma opção no menu ao lado.</p>
+
+    <div id="telaCadastro" class="card" style="display:none;">
+        <h2>Cadastro de Cliente (Ordem de Serviço)</h2>
+        <label>Data:</label>
+        <input type="date" id="dataCadastro">
+        <label>Cliente:</label>
+        <input id="cliente">
+        <label>Tipo:</label>
+        <select id="tipo">
+            <option value="garantia">Garantia</option>
+            <option value="preparacao">Preparação</option>
+        </select>
+        <label>Status:</label>
+        <select id="status">
+            <option>Aguardando</option>
+            <option>Em espera</option>
+            <option>Montagem</option>
+            <option>Peças</option>
+            <option>Pronto</option>
+            <option>Teste</option>
+            <option>Retífica</option>
+        </select>
+        <label>Placa:</label>
+        <input id="placa">
+        <label>Marca:</label>
+        <input id="marca">
+        <label>Modelo:</label>
+        <input id="modelo">
+        <label>KM Entrada:</label>
+        <input type="number" id="kmEntrada" min="0">
+        <label>KM Venda:</label>
+        <input type="number" id="kmVenda" min="0">
+        <label>Data da Venda:</label>
+        <input type="date" id="dataVenda">
+        <label>Defeito:</label>
+        <input id="defeito">
+        <label>Avaria:</label>
+        <input id="avaria">
+        <label>Detalhes da Avaria:</label>
+        <textarea id="detalhesAvaria" rows="3"></textarea>
+        <label>Reparo:</label>
+        <input id="reparo">
+        <label>Mecânico:</label>
+        <input id="mecanico">
+        <label>Observação:</label>
+        <textarea id="observacao" rows="3"></textarea>
+        <button onclick="salvarCadastro()">Salvar Cadastro</button>
+    </div>
+
+    <div id="telaClientes" class="table-box" style="display:none;">
+        <h2>Ordens de Serviço Cadastradas</h2>
+        <div class="filters" style="margin-bottom:12px; display:flex; gap:10px;">
+            <input id="filtroID" placeholder="Filtrar por ID/OS" onkeyup="filtrarClientes()" style="width:150px;">
+            <input id="filtroNome" placeholder="Filtrar por cliente" onkeyup="filtrarClientes()" style="width:30%;">
+            <input id="filtroTipo" placeholder="Filtrar por tipo (garantia/preparacao)" onkeyup="filtrarClientes()" style="width:30%;">
+            <input id="filtroPlaca" placeholder="Filtrar por placa" onkeyup="filtrarClientes()" style="width:30%;">
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>OS ID</th>
+                    <th>Data</th>
+                    <th>Cliente</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Placa</th>
+                    <th>Reparo</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaClientes"></tbody>
+        </table>
+    </div>
+    
+    <div id="telaCadastroItem" class="card" style="display:none;">
+        <h2>Cadastro de Item/Serviço</h2>
+        <label>Nome do Item/Serviço:</label>
+        <input id="itemNome">
+        
+        <input type="hidden" id="itemPreco" value="0"> 
+        
+        <label>Tipo:</label>
+        <select id="itemTipo">
+            <option value="Peca">Peça</option>
+            <option value="Servico">Serviço</option>
+            <option value="MaoDeObra">Mão de Obra</option>
+            <option value="Outros">Outros</option>
+        </select>
+        <button onclick="salvarItem()">Salvar Item</button>
+    </div>
+
+    <div id="telaListaItens" class="table-box" style="display:none;">
+        <h2>Itens/Serviços Cadastrados</h2>
+        <table>
+            <thead><tr><th>Nome</th><th>Tipo</th><th>Preço Sugerido (R$)</th><th>Ações</th></tr></thead>
+            <tbody id="tabelaItens"></tbody>
+        </table>
+    </div>
+
+    <div id="telaNovoCusto" class="card" style="display:none;">
+        <h2>Registrar Novo Custo</h2>
+
+        <div class="input-group">
+            <div>
+                <label>Categoria do Custo:</label>
+                <select id="custoCategoria">
+                    <option value="Operacional">Operacional</option>
+                    <option value="Manutenção">Manutenção</option>
+                    <option value="Pessoal">Pessoal</option>
+                    <option value="Impostos">Impostos</option>
+                    <option value="Outros">Outros</option>
+                </select>
+            </div>
+            <div>
+                <label>Data do Custo:</label>
+                <input type="date" id="custoData">
+            </div>
+        </div>
+
+        <hr>
+        
+        <label>Placa da OS (Opcional - Selecione para vincular o Cliente):</label>
+        <select id="custoPlaca" onchange="vincularClientePorPlaca()">
+            <option value="">-- Selecione uma Placa --</option>
+            </select>
+
+        <label>Nome do Cliente (Preenchido Automaticamente ou Manualmente):</label>
+        <input id="custoCliente" placeholder="Preenchido pela Placa ou Manualmente">
+
+        <hr>
+
+        <h3>Adicionar Itens do Custo</h3>
+
+        <label>Item Cadastrado (Para Nome/Referência):</label>
+        <select id="itemDescricaoSelect" onchange="preencherValorItem()">
+            <option value="">-- Selecione um Item --</option>
+            </select>
+        
+        <label>Descrição Personalizada (Se não usar o Item Cadastrado):</label>
+        <input type="text" id="itemDescricaoInput" placeholder="Ex: Óleo 5w30">
+
+        <div class="input-group">
+            <div>
+                <label>Quantidade:</label>
+                <input type="number" id="itemQuantidade" min="1" value="1" step="1">
+            </div>
+            <div>
+                <label>Valor Unitário (R$):</label>
+                <input type="number" id="itemValor" min="0" step="0.01" placeholder="Necessário preencher manualmente">
+            </div>
+        </div>
+        
+
+        <button onclick="adicionarItemCusto()" class="btn-small">Adicionar Item</button>
+
+        <hr>
+
+        <h3>Itens Adicionados</h3>
+        <table style="width:100%;">
+            <thead>
+                <tr>
+                    <th>Descrição</th>
+                    <th>Qtd</th>
+                    <th>Valor Unitário (R$)</th>
+                    <th>Total Item (R$)</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="listaItensCusto"></tbody>
+        </table>
+
+        <h2>Total do Custo: <span id="totalCusto">R$ 0,00</span></h2>
+
+        <button onclick="salvarCusto()">Registrar Custo</button>
+    </div>
+
+    <div id="telaListaCustos" class="table-box" style="display:none;">
+        <h2>Custos Registrados</h2>
+        <div class="filters" style="display:flex; gap:10px;">
+            <input id="filtroCustoDesc" placeholder="Filtrar por descrição/cliente" onkeyup="filtrarCustos()" style="flex:1;">
+            <input id="filtroCustoPlaca" placeholder="Filtrar por placa" onkeyup="filtrarCustos()" style="flex:1;">
+            <input id="filtroCustoCat" placeholder="Filtrar por categoria" onkeyup="filtrarCustos()" style="flex:1;">
+            <input id="filtroCustoData" type="date" onchange="filtrarCustos()" style="flex:1;">
+        </div>
+        <table>
+            <thead><tr><th>Data</th><th>Cliente/Placa</th><th>Descrição (Itens)</th><th>Categoria</th><th>Valor Total (R$)</th><th>Ações</th></tr></thead>
+            <tbody id="tabelaCustos"></tbody>
+        </table>
+    </div>
+
+    <div id="telaResultadosCustos" style="display:none;">
+        <h2>📊 Análise de Custos e Atividades</h2>
+        <div class="dashboard-box">
+            <div class="dash">
+                <p class="small">Total Geral de Custos</p>
+                <h1 id="totalGeralCustos" style="color: #cc0000;">R$ 0,00</h1>
+            </div>
+
+            <div class="dash">
+                <p class="small">Quantidade Total de Ordens (OS)</p>
+                <h1 id="totalOrdens">0</h1>
+            </div>
+
+            <div class="dash">
+                <p class="small">OSs Prontas (Status 'Pronto')</p>
+                <h1 id="ordensPronto">0</h1>
+            </div>
+
+            <div class="dash" style="width:250px;">
+                <p class="small">Top 3 Mecânicos (OS Cadastradas)</p>
+                <h1 id="topMecanico1">N/A</h1>
+                <p class="small" id="topMecanico1Count"></p>
+            </div>
+            <div class="dash" style="width:200px;">
+                <p class="small">2º e 3º Mecânicos</p>
+                <p style="margin:5px 0;" id="topMecanico2">2º: N/A</p>
+                <p style="margin:5px 0;" id="topMecanico3">3º: N/A</p>
+            </div>
+            
+            <div class="dash" style="width:200px;">
+                <p class="small">Top 3 Itens em Custos</p>
+                <p style="margin:5px 0; font-weight:bold;" id="topItem1">1º: N/A</p>
+                <p style="margin:5px 0;" id="topItem2">2º: N/A</p>
+                <p style="margin:5px 0;" id="topItem3">3º: N/A</p>
+            </div>
+            </div>
+
+        <div class="table-box" style="margin-top: 30px; max-width: 700px;">
+            <h3>💰 5 Maiores Custos (por Descrição de Item)</h3>
+            <table>
+                <thead><tr><th>Descrição</th><th>Valor Total</th></tr></thead>
+                <tbody id="tabelaTopCustos"></tbody>
+            </table>
+        </div>
+
+        <div class="table-box" style="margin-top: 20px; max-width: 700px;">
+            <h3>🔎 Top 5 Serviços (Defeito/Avaria/Reparo) em OS</h3>
+            <table>
+                <thead><tr><th>Item</th><th>Ocorrências</th></tr></thead>
+                <tbody id="tabelaTopItensServicos"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="modalStatus" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="document.getElementById('modalStatus').style.display='none';">&times;</span>
+        <h2>Atualizar Status da OS</h2>
+        <p>OS: <strong id="modalOsId"></strong> - Cliente: <span id="modalOsCliente"></span></p>
+
+        <label>Novo Status:</label>
+        <select id="modalNovoStatus">
+            <option>Aguardando</option>
+            <option>Em espera</option>
+            <option>Montagem</option>
+            <option>Peças</option>
+            <option>Pronto</option>
+            <option>Teste</option>
+            <option>Retífica</option>
+        </select>
+        
+        <p style="font-size:12px; margin-top:15px; color:#555;">O histórico de status será atualizado com a data e hora atuais.</p>
+
+        <button onclick="salvarNovoStatus()">Atualizar Status</button>
+    </div>
+</div>
+
+<script>
+// -------------------- FIREBASE CONFIG --------------------
+// SUBSTITUA AS CHAVES ABAIXO PELAS SUAS CREDENCIAIS REAIS DO FIREBASE
+const firebaseConfig = {
+    apiKey: "INSIRA_SUA_API_KEY_AQUI",
+    authDomain: "INSIRA_SEU_AUTH_DOMAIN_AQUI",
+    projectId: "INSIRA_SEU_PROJECT_ID_AQUI",
+    storageBucket: "INSIRA_SEU_STORAGE_BUCKET_AQUI",
+    messagingSenderId: "INSIRA_SEU_MESSAGING_SENDER_ID_AQUI",
+    appId: "INSIRA_SEU_APP_ID_AQUI"
+};
+
+let db;
+try {
+    const app = firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore(app);
+} catch (err) {
+    console.error("Erro ao inicializar Firebase:", err);
+    alert("Erro: Firebase não inicializado. Verifique firebaseConfig no código.");
+}
+
+// listas locais
+let listaClientes = []; // Dados de OS/Clientes
+let listaCustos = []; // Dados de Custos
+let listaItens = []; // Dados de Itens/Serviços
+
+// Variáveis de estado
+let idOSParaAtualizar = null; // Para o modal de status
+let itensCustoTemp = []; // Para o registro de custos em andamento
+
+// utilitários de UI
+function toggle(id){ const el = document.getElementById(id); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
+function abrirTela(t){
+    document.querySelectorAll('.card, .table-box, #telaResultadosCustos').forEach(el=>el.style.display='none');
+    document.getElementById(t).style.display='block';
+    if(t === 'telaClientes') carregarClientes();
+    if(t === 'telaNovoCusto') prepararNovoCusto();
+    if(t === 'telaListaCustos') carregarCustos();
+    if(t === 'telaCadastroItem') limparFormItem();
+    if(t === 'telaListaItens') carregarItens();
+    if(t === 'telaResultadosCustos') carregarDashboardCustos();
+}
+
+// -------------------- MÓDULO CLIENTES (ORDEM DE SERVIÇO) --------------------
+async function salvarCadastro(){
+    const data = document.getElementById('dataCadastro').value || '';
+    const cliente = document.getElementById('cliente').value.trim();
+    const tipo = document.getElementById('tipo').value;
+    const status = document.getElementById('status').value;
+    const placa = document.getElementById('placa').value.trim().toUpperCase(); // Padronizando placa
+    const marca = document.getElementById('marca').value.trim();
+    const modelo = document.getElementById('modelo').value.trim();
+    const kmEntrada = document.getElementById('kmEntrada').value || '';
+    const kmVenda = document.getElementById('kmVenda').value || '';
+    const dataVenda = document.getElementById('dataVenda').value || '';
+    const defeito = document.getElementById('defeito').value.trim();
+    const avaria = document.getElementById('avaria').value.trim();
+    const detalhesAvaria = document.getElementById('detalhesAvaria').value.trim();
+    const reparo = document.getElementById('reparo').value.trim();
+    const mecanico = document.getElementById('mecanico').value.trim();
+    const observacao = document.getElementById('observacao').value.trim();
+
+    if(!cliente || !placa){
+        alert('Por favor preencha pelo menos Cliente e Placa.');
+        return;
+    }
+    
+    // Objeto de registro de status inicial
+    const statusRecord = {
+        status: status,
+        timestamp: new Date().toLocaleString('pt-BR')
+    };
+
+    const doc = {
+        data: data || new Date().toISOString().split('T')[0],
+        cliente,
+        tipo,
+        status,
+        placa,
+        marca,
+        modelo,
+        kmEntrada: kmEntrada === '' ? null : Number(kmEntrada),
+        kmVenda: kmVenda === '' ? null : Number(kmVenda),
+        dataVenda: dataVenda || '',
+        defeito,
+        avaria,
+        detalhesAvaria,
+        reparo,
+        mecanico,
+        observacao,
+        statusHistory: [statusRecord], // Adiciona o histórico inicial
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+        await db.collection('clientes').add(doc);
+        alert('Cadastro salvo com sucesso!');
+        // Limpeza dos campos
+        document.getElementById('dataCadastro').value = '';
+        document.getElementById('cliente').value = '';
+        document.getElementById('tipo').value = 'garantia';
+        document.getElementById('status').value = 'Aguardando';
+        document.getElementById('placa').value = '';
+        document.getElementById('marca').value = '';
+        document.getElementById('modelo').value = '';
+        document.getElementById('kmEntrada').value = '';
+        document.getElementById('kmVenda').value = '';
+        document.getElementById('dataVenda').value = '';
+        document.getElementById('defeito').value = '';
+        document.getElementById('avaria').value = '';
+        document.getElementById('detalhesAvaria').value = '';
+        document.getElementById('reparo').value = '';
+        document.getElementById('mecanico').value = '';
+        document.getElementById('observacao').value = '';
+        abrirTela('telaClientes');
+    } catch (e) {
+        console.error('Erro ao salvar cliente/OS:', e);
+        alert('Erro ao salvar cliente/OS. Verifique console.');
+    }
+}
+
+async function carregarClientes(){
+    try {
+        const snapshot = await db.collection('clientes').orderBy('data','desc').get();
+        listaClientes = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        atualizarTabelaClientes();
+        popularSelectPlacas();
+    } catch (e) {
+        console.error('Erro ao carregar clientes/OS:', e);
+        listaClientes = [];
+    }
+}
+
+function atualizarTabelaClientes(clientes = listaClientes){
+    const corpo = document.getElementById('tabelaClientes');
+    if(!corpo) return;
+    corpo.innerHTML = clientes.map(c => `
+        <tr>
+            <td>**${c.id.substring(0, 6).toUpperCase()}**</td>
+            <td>${c.data || ''}</td>
+            <td>${c.cliente || ''}</td>
+            <td>${c.tipo || ''}</td>
+            <td>${c.status || ''}</td>
+            <td>${c.placa || ''}</td>
+            <td>${c.reparo || ''}</td>
+            <td>
+                <button class="btn-action" style="background:#28a745;" onclick="abrirModalStatus('${c.id}', '${c.cliente}', '${c.status}')">Status</button>
+                <button class="btn-action" style="background:#dc3545;" onclick="removerOS('${c.id}')">Remover</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function filtrarClientes(){
+    const id = (document.getElementById('filtroID').value || '').toLowerCase();
+    const n = (document.getElementById('filtroNome').value || '').toLowerCase();
+    const t = (document.getElementById('filtroTipo').value || '').toLowerCase();
+    const p = (document.getElementById('filtroPlaca').value || '').toLowerCase();
+
+    const filtrados = listaClientes.filter(c =>
+        (c.id || '').toLowerCase().includes(id) &&
+        (c.cliente || '').toLowerCase().includes(n) &&
+        (c.tipo || '').toLowerCase().includes(t) &&
+        (c.placa || '').toLowerCase().includes(p)
+    );
+    atualizarTabelaClientes(filtrados);
+}
+
+// === FUNÇÕES DE AÇÃO DA OS ===
+function abrirModalStatus(id, cliente, statusAtual) {
+    idOSParaAtualizar = id;
+    document.getElementById('modalOsId').textContent = id.substring(0, 6).toUpperCase();
+    document.getElementById('modalOsCliente').textContent = cliente;
+    document.getElementById('modalNovoStatus').value = statusAtual;
+    document.getElementById('modalStatus').style.display = 'block';
+}
+
+async function salvarNovoStatus() {
+    if (!idOSParaAtualizar) return;
+    const novoStatus = document.getElementById('modalNovoStatus').value;
+    
+    const clienteOS = listaClientes.find(c => c.id === idOSParaAtualizar);
+    if (!clienteOS) return;
+
+    // Verifica se o status mudou
+    if (clienteOS.status === novoStatus) {
+        alert('O status selecionado é o mesmo atual.');
+        document.getElementById('modalStatus').style.display = 'none';
+        idOSParaAtualizar = null;
+        return;
+    }
+
+    const statusRecord = {
+        status: novoStatus,
+        timestamp: new Date().toLocaleString('pt-BR')
+    };
+
+    try {
+        await db.collection('clientes').doc(idOSParaAtualizar).update({ 
+            status: novoStatus,
+            // Adiciona o novo registro ao array, mantendo os antigos (cria se não existir)
+            statusHistory: firebase.firestore.FieldValue.arrayUnion(statusRecord)
+        });
+        
+        alert(`Status da OS ${idOSParaAtualizar.substring(0, 6).toUpperCase()} atualizado para: ${novoStatus}`);
+        document.getElementById('modalStatus').style.display = 'none';
+        idOSParaAtualizar = null;
+        carregarClientes();
+    } catch (e) {
+        console.error('Erro ao atualizar status:', e);
+        alert('Erro ao atualizar status da OS.');
+    }
+}
+
+async function removerOS(id) {
+    if (confirm(`Tem certeza que deseja remover a OS ${id.substring(0, 6).toUpperCase()}? Essa ação é irreversível!`)) {
+        try {
+            await db.collection('clientes').doc(id).delete();
+            alert('Ordem de Serviço removida com sucesso!');
+            carregarClientes();
+        } catch (e) {
+            console.error('Erro ao remover OS:', e);
+            alert('Erro ao remover Ordem de Serviço.');
+        }
+    }
+}
+
+// -------------------- NOVO MÓDULO: CADASTRO DE ITENS/SERVIÇOS --------------------
+
+function limparFormItem() {
+    document.getElementById('itemNome').value = '';
+    // O input 'itemPreco' é hidden e tem valor fixo, não precisa limpar.
+    document.getElementById('itemTipo').value = 'Peca';
+}
+
+async function salvarItem() {
+    const nome = document.getElementById('itemNome').value.trim();
+    // O preço agora é opcional ou fixo em 0.00
+    const preco = parseFloat(document.getElementById('itemPreco').value || 0); 
+    const tipo = document.getElementById('itemTipo').value;
+
+    if (!nome) {
+        alert('Preencha o Nome do Item/Serviço.');
+        return;
+    }
+
+    const itemDoc = {
+        nome,
+        preco: preco, // Salva 0.00 ou o valor default
+        tipo,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+        await db.collection('itens').add(itemDoc);
+        alert('Item/Serviço salvo com sucesso!');
+        limparFormItem();
+        carregarItens();
+        abrirTela('telaListaItens');
+    } catch (e) {
+        console.error('Erro ao salvar item:', e);
+        alert('Erro ao salvar item/serviço.');
+    }
+}
+
+async function carregarItens() {
+    try {
+        const snapshot = await db.collection('itens').orderBy('nome', 'asc').get();
+        listaItens = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        atualizarTabelaItens();
+        popularSelectItens();
+    } catch (e) {
+        console.error('Erro ao carregar itens:', e);
+        listaItens = [];
+    }
+}
+
+function atualizarTabelaItens(itens = listaItens) {
+    const corpo = document.getElementById('tabelaItens');
+    if(!corpo) return;
+    corpo.innerHTML = itens.map(i => `
+        <tr>
+            <td>${i.nome}</td>
+            <td>${i.tipo}</td>
+            <td>R$ ${i.preco ? i.preco.toFixed(2).replace('.', ',') : '0,00'}</td>
+            <td>
+                <button class="btn-small" style="background:#dc3545;" onclick="removerItem('${i.id}')">Remover</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function removerItem(id) {
+    if (confirm('Tem certeza que deseja remover este Item/Serviço?')) {
+        try {
+            await db.collection('itens').doc(id).delete();
+            alert('Item/Serviço removido com sucesso!');
+            carregarItens();
+        } catch (e) {
+            console.error('Erro ao remover item:', e);
+            alert('Erro ao remover item.');
+        }
+    }
+}
+
+// -------------------- MÓDULO DE CUSTOS --------------------
+
+function prepararNovoCusto() {
+    if (listaClientes.length === 0) carregarClientes();
+    if (listaItens.length === 0) carregarItens();
+    
+    itensCustoTemp = [];
+    atualizarListaItens();
+    // Limpa campos principais
+    document.getElementById('custoData').value = new Date().toISOString().split('T')[0];
+    document.getElementById('custoPlaca').value = '';
+    document.getElementById('custoCliente').value = '';
+    document.getElementById("itemDescricaoSelect").value = "";
+    document.getElementById("itemDescricaoInput").value = "";
+    document.getElementById("itemQuantidade").value = "1";
+    document.getElementById("itemValor").value = "";
+}
+
+function popularSelectPlacas() {
+    const select = document.getElementById('custoPlaca');
+    // Armazenar as opções atuais, se houver
+    const opcoesAtuais = Array.from(select.options).map(o => o.value);
+    
+    // Filtra placas únicas e existentes
+    const placasUnicas = {};
+    listaClientes.forEach(c => {
+        if (c.placa && c.placa.trim() !== '') {
+            placasUnicas[c.placa] = c.cliente;
+        }
+    });
+
+    const novasPlacas = Object.keys(placasUnicas);
+    
+    // Limpa e repopula apenas se houver diferença
+    if (opcoesAtuais.length - 1 !== novasPlacas.length || !opcoesAtuais.slice(1).every(v => novasPlacas.includes(v))) {
+        select.innerHTML = '<option value="">-- Selecione uma Placa --</option>';
+        Object.keys(placasUnicas).forEach(placa => {
+            const option = document.createElement('option');
+            option.value = placa;
+            option.textContent = `${placa} (${placasUnicas[placa]})`;
+            select.appendChild(option);
+        });
+    }
+}
+
+function vincularClientePorPlaca() {
+    const placaSelecionada = document.getElementById('custoPlaca').value;
+    const campoCliente = document.getElementById('custoCliente');
+    
+    if (placaSelecionada === '') {
+        campoCliente.value = '';
+        return;
+    }
+    
+    // Encontra o cliente mais recente associado a esta placa (pela data mais recente)
+    const clienteAssociado = listaClientes
+        .filter(c => c.placa === placaSelecionada)
+        .sort((a, b) => new Date(b.data) - new Date(a.data))[0];
+
+    if (clienteAssociado) {
+        campoCliente.value = clienteAssociado.cliente;
+    } else {
+        campoCliente.value = '';
+    }
+}
+
+function popularSelectItens() {
+    const select = document.getElementById('itemDescricaoSelect');
+     // Armazenar as opções atuais, se houver
+    const opcoesAtuais = Array.from(select.options).map(o => o.value);
+
+    const novosItensIds = listaItens.map(i => i.id);
+
+    // Limpa e repopula apenas se houver diferença
+    if (opcoesAtuais.length - 1 !== novosItensIds.length || !opcoesAtuais.slice(1).every(v => novosItensIds.includes(v))) {
+        select.innerHTML = '<option value="">-- Selecione um Item --</option>';
+        listaItens.forEach(i => {
+            const option = document.createElement('option');
+            option.value = i.id;
+            // Remove a exibição do preço sugerido no Select, mas o item continua a ter o valor associado
+            option.textContent = i.nome;
+            select.appendChild(option);
+        });
+    }
+}
+
+function preencherValorItem() {
+    const itemId = document.getElementById('itemDescricaoSelect').value;
+    const itemValor = document.getElementById('itemValor');
+    const itemDescricaoInput = document.getElementById('itemDescricaoInput');
+    
+    if (itemId === '') {
+        itemValor.value = '';
+        itemDescricaoInput.value = '';
+        return;
+    }
+
+    const itemSelecionado = listaItens.find(i => i.id === itemId);
+    if (itemSelecionado) {
+        // Se o preço for 0 ou nulo no cadastro, não preenche automaticamente.
+        if (itemSelecionado.preco > 0) {
+            itemValor.value = itemSelecionado.preco.toFixed(2);
+        } else {
+            itemValor.value = ''; // Se o preço cadastrado for 0, deixa o campo de custo vazio
+        }
+        itemDescricaoInput.value = itemSelecionado.nome; 
+    }
+}
+
+function atualizarListaItens() {
+    const tabela = document.getElementById("listaItensCusto");
+    tabela.innerHTML = itensCustoTemp.map((item, index) => {
+        const totalItem = item.quantidade * item.valor;
+        return `
+            <tr>
+                <td>${item.descricao}</td>
+                <td>${item.quantidade}</td>
+                <td>R$ ${item.valor.toFixed(2).replace('.', ',')}</td>
+                <td>R$ ${totalItem.toFixed(2).replace('.', ',')}</td>
+                <td>
+                    <button class="btn-small" style="background:#dc3545;" onclick="removerItemCusto(${index})">Remover</button>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    const total = itensCustoTemp.reduce((soma, i) => soma + (i.quantidade * i.valor), 0);
+    document.getElementById("totalCusto").innerText = "R$ " + total.toFixed(2).replace('.', ',');
+}
+
+function adicionarItemCusto() {
+    const select = document.getElementById("itemDescricaoSelect");
+    const itemId = select.value;
+    const itemSelecionado = listaItens.find(i => i.id === itemId);
+
+    // Se um item cadastrado foi selecionado, use o nome dele. Caso contrário, use o input manual.
+    const descricao = itemSelecionado 
+        ? itemSelecionado.nome
+        : document.getElementById("itemDescricaoInput").value.trim();
+        
+    const quantidade = parseInt(document.getElementById("itemQuantidade").value);
+    const valor = parseFloat(document.getElementById("itemValor").value);
+
+    if (!descricao || isNaN(quantidade) || quantidade <= 0 || isNaN(valor) || valor < 0) {
+        alert("Preencha a descrição (selecionando um item ou digitando), quantidade e valor unitário válidos!");
+        return;
+    }
+
+    itensCustoTemp.push({ descricao, quantidade, valor, totalItem: quantidade * valor }); // Guarda os dados
+    
+    // Limpa campos de item
+    document.getElementById("itemDescricaoSelect").value = "";
+    document.getElementById("itemDescricaoInput").value = "";
+    document.getElementById("itemQuantidade").value = "1";
+    document.getElementById("itemValor").value = "";
+
+    atualizarListaItens();
+}
+
+function removerItemCusto(index) {
+    itensCustoTemp.splice(index, 1);
+    atualizarListaItens();
+}
+
+async function salvarCusto(){
+    const categoria = document.getElementById('custoCategoria').value;
+    const data = document.getElementById('custoData').value;
+    const placa = document.getElementById('custoPlaca').value;
+    const cliente = document.getElementById('custoCliente').value.trim();
+    
+    if (!data) { alert('Informe a data do custo.'); return; }
+    if (itensCustoTemp.length === 0) { alert('Adicione pelo menos 1 item ao custo.'); return; }
+
+    const total = itensCustoTemp.reduce((s, i) => s + (i.quantidade * i.valor), 0);
+
+    const registro = {
+        categoria,
+        data,
+        placa: placa.toUpperCase(), // Salvando em maiúsculas para padronizar o filtro
+        cliente,
+        itens: itensCustoTemp,
+        total,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+        await db.collection('custos').add(registro);
+        alert('Custo registrado com sucesso!');
+
+        itensCustoTemp = [];
+        prepararNovoCusto(); // Reseta o formulário
+        abrirTela('telaListaCustos');
+    } catch (e) {
+        console.error('Erro ao salvar custo:', e);
+        alert('Erro ao registrar custo.');
+    }
+}
+
+async function carregarCustos(){
+    try {
+        const snapshot = await db.collection('custos').orderBy('data','desc').get();
+        listaCustos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        atualizarTabelaCustos();
+    } catch (e) {
+        console.error('Erro ao carregar custos:', e);
+        listaCustos = [];
+    }
+}
+
+function atualizarTabelaCustos(custos = listaCustos){
+    const corpo = document.getElementById('tabelaCustos');
+    if(!corpo) return;
+    corpo.innerHTML = custos.map(c => {
+        const itensDesc = c.itens ? c.itens.map(i=>`${i.descricao} (x${i.quantidade || 1})`).join(', ') : '';
+        const clientePlaca = c.cliente ? `${c.cliente} (${c.placa || 'N/A'})` : c.placa || '';
+        
+        return `
+            <tr>
+                <td>${c.data || ''}</td>
+                <td>${clientePlaca}</td>
+                <td>${itensDesc}</td>
+                <td>${c.categoria || ''}</td>
+                <td>R$ ${c.total ? c.total.toFixed(2).replace('.', ',') : '0,00'}</td>
+                <td>
+                    <button class="btn-action" style="background:#dc3545;" onclick="removerCusto('${c.id}')">Remover</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filtrarCustos(){
+    const desc = (document.getElementById('filtroCustoDesc').value || '').toLowerCase();
+    const placaFiltro = (document.getElementById('filtroCustoPlaca').value || '').toLowerCase(); // Novo Filtro
+    const cat = (document.getElementById('filtroCustoCat').value || '').toLowerCase();
+    const data = (document.getElementById('filtroCustoData').value || '').toLowerCase();
+
+    const filtrados = listaCustos.filter(c => {
+        const itensDesc = c.itens ? c.itens.map(i=>i.descricao).join(', ').toLowerCase() : '';
+        const clientePlaca = (c.cliente || '').toLowerCase();
+        const placaCusto = (c.placa || '').toLowerCase();
+        
+        const correspondeDesc = desc === '' || itensDesc.includes(desc) || clientePlaca.includes(desc);
+        const correspondePlaca = placaFiltro === '' || placaCusto.includes(placaFiltro); // Nova Condição
+        const correspondeCat = cat === '' || (c.categoria || '').toLowerCase().includes(cat);
+        const correspondeData = data === '' || (c.data || '').toLowerCase() === data;
+
+        return correspondeDesc && correspondePlaca && correspondeCat && correspondeData;
+    });
+    atualizarTabelaCustos(filtrados);
+}
+
+async function removerCusto(id) {
+    if (confirm('Tem certeza que deseja remover este registro de Custo? Essa ação é irreversível!')) {
+        try {
+            await db.collection('custos').doc(id).delete();
+            alert('Custo removido com sucesso!');
+            carregarCustos();
+        } catch (e) {
+            console.error('Erro ao remover custo:', e);
+            alert('Erro ao remover custo.');
+        }
+    }
+}
+
+// -------------------- MÓDULO DE RESULTADOS/DASHBOARD --------------------
+// Função utilitária para formatar nome
+const formatName = (str) => str.toUpperCase().substring(0,1) + str.substring(1);
+
+async function carregarDashboardCustos() {
+    // 1. Garante que os dados estão atualizados
+    await carregarCustos(); 
+    await carregarClientes(); 
+
+    // 2. Cálculos de Agregação de Custos e Contagem de Itens
+    let totalGeral = 0;
+    const topCustosMap = {}; // Agrupa custos por descrição de item para o ranking de VALOR
+    const topItensCountMap = {}; // Conta a frequência de itens para o ranking de QUANTIDADE
+
+    listaCustos.forEach(c => {
+        totalGeral += c.total || 0;
+        if(c.itens) {
+            c.itens.forEach(item => {
+                const totalItem = (item.quantidade || 1) * (item.valor || 0);
+                const desc = item.descricao.trim();
+                
+                // Ranking de Valor
+                topCustosMap[desc] = (topCustosMap[desc] || 0) + totalItem;
+                
+                // Ranking de Quantidade (Frequência de Cadastro)
+                topItensCountMap[desc] = (topItensCountMap[desc] || 0) + (item.quantidade || 1);
+            });
+        }
+    });
+    document.getElementById('totalGeralCustos').innerText = "R$ " + totalGeral.toFixed(2).replace('.', ',');
+
+    // 3. Cálculo de Ordens e Status
+    document.getElementById('totalOrdens').innerText = listaClientes.length.toString();
+    const ordensPronto = listaClientes.filter(c => c.status === 'Pronto').length;
+    document.getElementById('ordensPronto').innerText = ordensPronto.toString();
+
+    // 4. TOP 3 MECÂNICOS
+    const mecanicosCount = {};
+    listaClientes.forEach(c => {
+        const mec = c.mecanico ? c.mecanico.trim().toLowerCase() : 'Não Informado';
+        if (mec !== 'não informado' && mec !== '') {
+            mecanicosCount[mec] = (mecanicosCount[mec] || 0) + 1;
+        }
+    });
+    
+    const topMecanicos = Object.entries(mecanicosCount)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3);
+        
+    // Atualiza o 1º colocado
+    if (topMecanicos[0]) {
+        document.getElementById('topMecanico1').innerText = formatName(topMecanicos[0][0]);
+        document.getElementById('topMecanico1Count').innerText = `${topMecanicos[0][1]} OSs`;
+    } else {
+        document.getElementById('topMecanico1').innerText = 'N/A';
+        document.getElementById('topMecanico1Count').innerText = '';
+    }
+
+    // Atualiza o 2º e 3º colocado
+    document.getElementById('topMecanico2').innerHTML = topMecanicos[1] 
+        ? `2º: ${formatName(topMecanicos[1][0])} (${topMecanicos[1][1]})`
+        : `2º: N/A`;
+        
+    document.getElementById('topMecanico3').innerHTML = topMecanicos[2] 
+        ? `3º: ${formatName(topMecanicos[2][0])} (${topMecanicos[2][1]})`
+        : `3º: N/A`;
+
+    // 5. TOP 3 ITENS MAIS CADASTRADOS (NOVA FUNCIONALIDADE)
+    const topItens = Object.entries(topItensCountMap)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3);
+        
+    // Atualiza os cards do Top 3 Itens
+    document.getElementById('topItem1').innerHTML = topItens[0] 
+        ? `1º: **${formatName(topItens[0][0])}** (${topItens[0][1]})`
+        : `1º: N/A`;
+
+    document.getElementById('topItem2').innerHTML = topItens[1] 
+        ? `2º: ${formatName(topItens[1][0])} (${topItens[1][1]})`
+        : `2º: N/A`;
+        
+    document.getElementById('topItem3').innerHTML = topItens[2] 
+        ? `3º: ${formatName(topItens[2][0])} (${topItens[2][1]})`
+        : `3º: N/A`;
+
+
+    // 6. Top 5 Maiores Custos (Por Valor)
+    const topCustos = Object.entries(topCustosMap)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5);
+
+    const corpoTopCustos = document.getElementById('tabelaTopCustos');
+    corpoTopCustos.innerHTML = topCustos.map(([desc, total]) => `
+        <tr>
+            <td>${desc}</td>
+            <td>R$ ${total.toFixed(2).replace('.', ',')}</td>
+        </tr>
+    `).join('');
+
+    // 7. Top 5 Itens de Serviço (Defeito/Avaria/Reparo)
+    const topServicosMap = {};
+    listaClientes.forEach(c => {
+        const campos = [c.defeito, c.avaria, c.reparo];
+        campos.forEach(campo => {
+            if (campo && campo.trim() !== '') {
+                const termos = campo.split(/[,;\/]/).map(t => t.trim().toLowerCase()).filter(t => t.length > 2);
+                termos.forEach(termo => {
+                    topServicosMap[termo] = (topServicosMap[termo] || 0) + 1;
+                });
+            }
+        });
+    });
+
+    const topServicos = Object.entries(topServicosMap)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5);
+        
+    const corpoTopServicos = document.getElementById('tabelaTopItensServicos');
+    corpoTopServicos.innerHTML = topServicos.map(([item, ocorrencias]) => `
+        <tr>
+            <td>${item.toUpperCase().substring(0,1) + item.substring(1)}</td>
+            <td>${ocorrencias}</td>
+        </tr>
+    `).join('');
+}
+
+// Carrega dados iniciais ao carregar a página
+document.addEventListener('DOMContentLoaded', () => {
+    carregarClientes();
+    carregarItens();
+    // Exibir tela de OS por padrão
+    abrirTela('telaClientes'); 
+});
+
+</script>
+</body>
+</html>
+"Initial project commit"
