@@ -57,6 +57,63 @@
         }
         .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
         .close:hover, .close:focus { color: black; text-decoration: none; cursor: pointer; }
+
+        /* ------------------------------------------- */
+        /* MEDIA QUERIES PARA RESPONSIVIDADE (NOVO)    */
+        /* ------------------------------------------- */
+        @media (max-width: 1024px) {
+            /* Oculta a barra lateral em telas menores (tablets e celulares) */
+            .sidebar {
+                display: none;
+            }
+
+            /* O conteúdo ocupa a largura total */
+            .content {
+                margin-left: 0;
+                padding: 15px;
+            }
+
+            /* Dashboards */
+            .dashboard-box {
+                flex-direction: column; /* Empilha os cards */
+                gap: 15px;
+            }
+            
+            .dash {
+                width: 100% !important; /* Faz os cards de dashboard ocuparem a largura total */
+                box-sizing: border-box;
+            }
+            
+            /* Formulários */
+            .input-group {
+                flex-direction: column; /* Empilha campos que estavam lado a lado */
+                gap: 0;
+            }
+            
+            /* Filtros da Tabela */
+            .filters {
+                flex-direction: column;
+                gap: 5px !important;
+            }
+            .filters input {
+                width: 100% !important;
+            }
+            
+            /* Tabelas (torna-as roláveis horizontalmente) */
+            .table-box {
+                overflow-x: auto;
+            }
+            .table-box table {
+                width: 650px; /* Largura mínima para garantir que o conteúdo caiba */
+            }
+
+            /* Modal (ajusta para telas menores) */
+            .modal-content {
+                width: 90%;
+                margin: 5% auto;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -1063,4 +1120,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-"Initial project commit"
